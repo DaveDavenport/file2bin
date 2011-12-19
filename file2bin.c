@@ -36,7 +36,7 @@
 
 #include <stdint.h>
 
-// The maximum size.
+// The maximum size we support. Currently 16MB should be sufficient.
 const int MAX_SIZE = 1024*1024*16;
 
 
@@ -99,6 +99,8 @@ int main ( int argc , char **argv )
 		putc(d, stdout);
 		file_size--;
 	}
+
+	// Check if complete file was written.
 	if(file_size > 0)
 	{
 		// Read data does not match up.
@@ -106,11 +108,16 @@ int main ( int argc , char **argv )
 		close(fd);	
 		return EXIT_FAILURE;
 	}
+
 	// Write padding.
 	while(padding) {
 		putc(0, stdout);
 		padding--;
 	}
+
+	// Close
 	close(fd);
+
+	// Return success
 	return EXIT_SUCCESS;
 }
