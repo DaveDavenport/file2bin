@@ -54,6 +54,7 @@ const unsigned int MAX_SIZE = 1024*1024*16;
 // The output is rounded up to complete words.
 // Padding is added as zeros. 
 // On the target platform memory can only be accessed in words.
+// DO NOT CHANGE!!!
 const unsigned int WORD_SIZE = 4;
 
 #define MAX(a,b) (((a)>(b))?(a):(b))
