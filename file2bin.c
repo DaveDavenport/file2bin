@@ -145,9 +145,6 @@ int main ( int argc , char **argv )
 		}
 		// Check read permission.
 		uint32_t file_size = file_stat.st_size;
-		uint32_t padding = file_size%WORD_SIZE;
-		// Calculate padding 
-		padding = (padding > 0)?(WORD_SIZE-padding):0;
 
 		// Read the file.
 		int fd = open(argv[current_file], O_RDONLY);
@@ -163,7 +160,7 @@ int main ( int argc , char **argv )
 		// Read complete words.
 		while(file_size > 0)
 		{
-			unsigned int nread = (file_size >= WORD_SIZE)?0:(padding);
+			unsigned int nread = (file_size >= WORD_SIZE)?0:(WORD_SIZE-file_size);
 
 			// RESET
 			d.d =0;
