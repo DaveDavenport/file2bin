@@ -51,12 +51,10 @@
 // The maximum size we support. Currently 16MB should be sufficient.
 const unsigned int MAX_SIZE = 1024*1024*16;
 
-
 // The output is rounded up to complete words.
 // Padding is added as zeros. 
 // On the target platform memory can only be accessed in words.
 const unsigned int WORD_SIZE = 4;
-
 
 int main ( int argc , char **argv )
 {
@@ -82,9 +80,9 @@ int main ( int argc , char **argv )
 			fprintf(stderr, "Usage: %s <input files>\n\n", argv[0]);
 			fprintf(stderr, "%s packs all given input files into one binary stream. Each file is padded to be word aligned.\n", argv[0]);
 			fprintf(stderr, "Prepended is the size of the stream in a 32bit little endian unsigned int.\n");
+			fprintf(stderr, "The maximum output size is currently limited to: %u bytes.\n", MAX_SIZE);
 			return EXIT_SUCCESS;
 		}
-
 		// Error
 		if(retv != 0)
 		{
@@ -122,18 +120,16 @@ int main ( int argc , char **argv )
 					MAX_SIZE);
 			return EXIT_FAILURE;
 	}
-
 	// Explicitely convert to little endian.	
 	uint32_t le_tsz = htole32(total_size);
 	// Write out total file size.
 	fwrite((void*)&le_tsz, sizeof(uint32_t),1,stdout);
-
+	// Write out each file
 	for(unsigned int current_file = 1; current_file < number_files;current_file++)
 	{
 		// Get file size 
 		struct stat file_stat;
 		int retv = stat(argv[current_file], &file_stat);
-
 		// Error
 		if(retv != 0)
 		{
@@ -151,7 +147,6 @@ int main ( int argc , char **argv )
 
 		// Read the file.
 		int fd = open(argv[current_file], O_RDONLY);
-
 		// Read bytewise.
 		unsigned char d;
 		while(read(fd, &d,1) == 1)
@@ -159,7 +154,6 @@ int main ( int argc , char **argv )
 			putc(d, stdout);
 			file_size--;
 		}
-
 		// Check if complete file was written.
 		if(file_size > 0)
 		{
@@ -168,13 +162,11 @@ int main ( int argc , char **argv )
 			close(fd);	
 			return EXIT_FAILURE;
 		}
-
 		// Write padding.
 		while(padding) {
 			putc(0, stdout);
 			padding--;
 		}
-
 		// Close
 		close(fd);
 	}
