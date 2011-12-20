@@ -160,17 +160,17 @@ int main ( int argc , char **argv )
 		// Read complete words.
 		while(file_size > 0)
 		{
-			unsigned int nread = (file_size >= WORD_SIZE)?0:(WORD_SIZE-file_size);
+			unsigned int nread = 0;//(file_size >= WORD_SIZE)?0:(WORD_SIZE-file_size);
 
 			// RESET
 			d.d =0;
-			while(nread != WORD_SIZE){
+			while(nread != MIN(WORD_SIZE, file_size)){
 				nread+=read(fd, &(d.a)[nread], WORD_SIZE-nread);
 			}
 			// Explicitely convert to bit.	
-			uint32_t le_d = htobe32(d.d);
+//			uint32_t le_d = htobe32(d.d);
 			// Write
-			fwrite(&le_d, WORD_SIZE, 1, stdout);
+			fwrite(&(d.d), WORD_SIZE, 1, stdout);
 			// substract.
 			file_size-=MIN(WORD_SIZE,file_size);
 		}
