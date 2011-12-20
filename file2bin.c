@@ -44,7 +44,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-// uint32_t and endian conversion
+// uint32_t and  conversion
 #include <stdint.h>
 #include <endian.h>
 
@@ -55,6 +55,9 @@ const unsigned int MAX_SIZE = 1024*1024*16;
 // Padding is added as zeros. 
 // On the target platform memory can only be accessed in words.
 const unsigned int WORD_SIZE = 4;
+
+#define MAX(a,b) (((a)>(b))?(a):(b))
+#define MIN(a,b) (((a)<(b))?(a):(b))
 
 int main ( int argc , char **argv )
 {
@@ -79,7 +82,7 @@ int main ( int argc , char **argv )
 		{
 			fprintf(stderr, "Usage: %s <input files>\n\n", argv[0]);
 			fprintf(stderr, "%s packs all given input files into one binary stream. Each file is padded to be word aligned.\n", argv[0]);
-			fprintf(stderr, "Prepended is the size of the stream in a 32bit little endian unsigned int.\n");
+			fprintf(stderr, "Prepended is the size of the stream in a 32bit big endian unsigned int.\n");
 			fprintf(stderr, "The maximum output size is currently limited to: %u bytes.\n", MAX_SIZE);
 			return EXIT_SUCCESS;
 		}
@@ -120,8 +123,8 @@ int main ( int argc , char **argv )
 					MAX_SIZE);
 			return EXIT_FAILURE;
 	}
-	// Explicitely convert to little endian.	
-	uint32_t le_tsz = htole32(total_size);
+	// Explicitely convert to bit.	
+	uint32_t le_tsz = htobe32(total_size);
 	// Write out total file size.
 	fwrite((void*)&le_tsz, sizeof(uint32_t),1,stdout);
 	// Write out each file
@@ -147,27 +150,33 @@ int main ( int argc , char **argv )
 
 		// Read the file.
 		int fd = open(argv[current_file], O_RDONLY);
-		// Read bytewise.
-		unsigned char d;
-		while(read(fd, &d,1) == 1)
-		{ 
-			putc(d, stdout);
-			file_size--;
-		}
-		// Check if complete file was written.
-		if(file_size > 0)
+
+		// Read bytewise. Spit out integer.
+		// This union allows us to quicky read in bytes, 
+		// But work on it as a integer.
+		union {
+			uint32_t d;
+			uint8_t  a[WORD_SIZE]; 
+		}d;
+
+		// Read complete words.
+		while(file_size > 0)
 		{
-			// Read data does not match up.
-			fprintf(stderr, "%s:  Failed to read complete file, %u bytes remaining.\n", argv[0], file_size); 
-			close(fd);	
-			return EXIT_FAILURE;
+			unsigned int nread = (file_size >= WORD_SIZE)?0:(padding);
+
+			// RESET
+			d.d =0;
+			while(nread != WORD_SIZE){
+				nread+=read(fd, &(d.a)[nread], WORD_SIZE-nread);
+			}
+			// Explicitely convert to bit.	
+			uint32_t le_d = htobe32(d.d);
+			// Write
+			fwrite(&le_d, WORD_SIZE, 1, stdout);
+			// substract.
+			file_size-=MIN(WORD_SIZE,file_size);
 		}
-		// Write padding.
-		while(padding) {
-			putc(0, stdout);
-			padding--;
-		}
-		// Close
+
 		close(fd);
 	}
 	// Return success
