@@ -25,6 +25,7 @@
  * <file 1> padded to 4bytes (32 bits, one word)
  * <file ...> 
  * <file n> padded to 4bytes (32 bits, one word)
+ * <end file n> padded to 4 bytes.
  */
 
 #include <stdio.h>
@@ -106,6 +107,7 @@ static void print_help(char **argv)
 	fprintf(stderr, "\tunsigned int 32bit be:  <offset file 2>\n");
 	fprintf(stderr, "\t.....\n");
 	fprintf(stderr, "\tunsigned int 32bit be:  <offset file n>\n");
+	fprintf(stderr, "\tunsigned int 32bit be:  <end offset file n>\n");
 }
 
 int main ( int argc , char **argv )
@@ -198,7 +200,7 @@ int main ( int argc , char **argv )
 	// one offset word for each word.
 	if(output_toc)
 	{
-		total_size += (num_files+1)*4;
+		total_size += (num_files+2)*4;
 	}
 
 	// Prepend total size of image. (excluding this)
@@ -218,7 +220,7 @@ int main ( int argc , char **argv )
 		// <offset file 1>
 		// .....
 		// <offset file n>
-		uint32_t toc_offset = (num_files+1)*4;
+		uint32_t toc_offset = (num_files+2)*4;
 		uint32_t temp_be;
 		// Number of entries in the toc.
 		temp_be = htobe32(num_files);
@@ -234,6 +236,10 @@ int main ( int argc , char **argv )
 			// increment offset.
 			toc_offset += files[i]->size+files[i]->padding; 
 		}
+		// Write file offset.
+		temp_be = htobe32(toc_offset);
+		fwrite((void*)&temp_be, sizeof(uint32_t),1,stdout);
+		fprintf(stderr, "%04d: 0x%08X\n", -1, toc_offset);
 		fprintf(stderr, "================\n");
 	}
 
