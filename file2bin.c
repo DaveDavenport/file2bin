@@ -1,7 +1,7 @@
 /* file2bin.c: Converts file(s) to a binary stream starting with size (32bit unsigned int)
- * and padded to whole words (32 bit). 
+ * and padded to whole words (32 bit).
  *
- * Copyright (C) 2011 Martijn Koedam 
+ * Copyright (C) 2011 Martijn Koedam
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,7 +23,7 @@
  * Output format:
  * 32bit unsigned int with size of binary data (excluding itself).
  * <file 1> padded to 4bytes (32 bits, one word)
- * <file ...> 
+ * <file ...>
  * <file n> padded to 4bytes (32 bits, one word)
  * <end file n> padded to 4 bytes.
  */
@@ -50,10 +50,10 @@
 #include <endian.h>
 
 // The maximum size we support. Currently 16MB should be sufficient.
-const unsigned int MAX_SIZE = 1024*1024*16;
+const unsigned int MAX_SIZE = 1024*1024*64;
 
 // The output is rounded up to complete words.
-// Padding is added as zeros. 
+// Padding is added as zeros.
 // On the target platform memory can only be accessed in words.
 // DO NOT CHANGE!!!
 const unsigned int WORD_SIZE = 4;
@@ -83,7 +83,7 @@ static void free_files(file ***files)
 		{
 			free((*files)[i]);
 			(*files)[i] = NULL;
-		}	
+		}
 		free(*files);
 	}
 	// Set pointer NULL
@@ -99,6 +99,7 @@ static void print_help(char **argv)
 	fprintf(stderr, "The maximum output size is currently limited to: %u bytes.\n", MAX_SIZE);
 	fprintf(stderr, "\n");
 	fprintf(stderr, "\t-t\t--toc\tOutput a Table of content\n");
+	fprintf(stderr, "\t-l\t--lend\tUse little endian instead of big endian\n");
 	fprintf(stderr, "\t-h\t--help\tThis help message\n");
 	fprintf(stderr, "\n");
 	fprintf(stderr, "TOC spec:\n");
@@ -110,6 +111,15 @@ static void print_help(char **argv)
 	fprintf(stderr, "\tunsigned int 32bit be:  <end offset file n>\n");
 }
 
+static uint32_t convert ( short int little_endian, uint32_t data )
+{
+    if(little_endian) {
+        return htole32(data);
+    } else {
+        return htobe32(data);
+    }
+}
+
 int main ( int argc , char **argv )
 {
 	// Total size we are going transmit (without size header)
@@ -119,6 +129,7 @@ int main ( int argc , char **argv )
 	unsigned int 	num_files = 0;
 	short int		output_toc = FALSE;
 	short int		output_total_size = TRUE;
+    short int       little_endian = FALSE;
 
 
 	for(unsigned int current_file = 1; current_file < number_files;current_file++)
@@ -139,15 +150,20 @@ int main ( int argc , char **argv )
 			output_toc = TRUE;
 			continue;
 		}
+		else if(strcmp(argv[current_file], "-l") == 0 || strcmp(argv[current_file], "--lend")==0)
+        {
+            little_endian = TRUE;
+            continue;
+        }
 		// No input argument, assume file.
 
-		// Get file size 
+		// Get file size
 		struct stat file_stat;
 		int retv = stat(argv[current_file], &file_stat);
 		// Error
 		if(retv != 0)
 		{
-			fprintf(stderr, "%s: Failed to open input file: %s, reason: %s\n", 
+			fprintf(stderr, "%s: Failed to open input file: %s, reason: %s\n",
 					argv[0],
 					argv[current_file],
 					strerror(errno));
@@ -156,9 +172,9 @@ int main ( int argc , char **argv )
 		}
 		// Check read permission.
 		// size
-		if(file_stat.st_size > MAX_SIZE) 
+		if(file_stat.st_size > (off_t)MAX_SIZE)
 		{
-			fprintf(stderr, "%s: File '%s' size is to big: %u bytes (limit %u bytes)\n", 
+			fprintf(stderr, "%s: File '%s' size is to big: %u bytes (limit %u bytes)\n",
 					argv[0],
 					argv[current_file],
 					(unsigned int) file_stat.st_size,
@@ -166,15 +182,15 @@ int main ( int argc , char **argv )
 			free_files(&files);
 			return EXIT_FAILURE;
 		}
-		uint32_t file_size = file_stat.st_size;
-		uint32_t padding = file_size%WORD_SIZE;
-		// Calculate padding 
+		uint32_t file_size = (uint32_t)file_stat.st_size;
+		uint32_t padding = (uint32_t)(file_size%WORD_SIZE);
+		// Calculate padding
 		padding = (padding > 0)?(WORD_SIZE-padding):0;
 		total_size += file_size+padding;
 
 		// Add element to list
-		files 						= realloc(files, (num_files+2)*sizeof(file*));
-		files[num_files] 			= malloc(sizeof(file));
+		files 						= (file **)realloc(files, (num_files+2)*sizeof(file*));
+		files[num_files] 			= (file*)malloc(sizeof(file));
 		files[num_files]->filename	= argv[current_file];
 		files[num_files]->size 		= file_size;
 		files[num_files]->padding	= padding;
@@ -187,27 +203,28 @@ int main ( int argc , char **argv )
 	}
 	// Check total size
 	if(total_size > MAX_SIZE) {
-			fprintf(stderr, "%s: File size is to big: %u bytes (limit %u bytes)\n", 
+			fprintf(stderr, "%s: File size is to big: %u bytes (limit %u bytes)\n",
 					argv[0],
-					(unsigned int)total_size, 
+					(unsigned int)total_size,
 					MAX_SIZE);
 			free_files(&files);
 			return EXIT_FAILURE;
 	}
 
 	// Include toc in total size.
-	// Toc table is 1 word 'num files' and 
+	// Toc table is 1 word 'num files' and
 	// one offset word for each word.
 	if(output_toc)
 	{
 		total_size += (num_files+2)*4;
 	}
 
+
 	// Prepend total size of image. (excluding this)
 	if(output_total_size)
 	{
-		// Explicitely convert to bit.	
-		uint32_t le_tsz = htobe32(total_size);
+		// Explicitely convert to bit.
+		uint32_t le_tsz = convert(little_endian,total_size);
 		// Write out total file size.
 		fwrite((void*)&le_tsz, sizeof(uint32_t),1,stdout);
 	}
@@ -223,38 +240,38 @@ int main ( int argc , char **argv )
 		uint32_t toc_offset = (num_files+2)*4;
 		uint32_t temp_be;
 		// Number of entries in the toc.
-		temp_be = htobe32(num_files);
+		temp_be = convert(little_endian,num_files);
 		fwrite((void*)&temp_be, sizeof(uint32_t),1,stdout);
 		// sizes
 		fprintf(stderr, "====== TOC =====\nsize: %u\n", num_files);
 		for(unsigned int i = 0; i < num_files; i++)
 		{
 			// Write file offset.
-			temp_be = htobe32(toc_offset);
+			temp_be = convert(little_endian,toc_offset);
 			fwrite((void*)&temp_be, sizeof(uint32_t),1,stdout);
 			fprintf(stderr, "%04d: 0x%08X: %s\n", i+1, toc_offset, files[i]->filename);
 			// increment offset.
-			toc_offset += files[i]->size+files[i]->padding; 
+			toc_offset += files[i]->size+files[i]->padding;
 		}
 		// Write file offset.
-		temp_be = htobe32(toc_offset);
+		temp_be = convert(little_endian,toc_offset);
 		fwrite((void*)&temp_be, sizeof(uint32_t),1,stdout);
 		fprintf(stderr, "%04d: 0x%08X\n", -1, toc_offset);
 		fprintf(stderr, "================\n");
 	}
 
 	// Write out each file
-	for(unsigned int i = 0; i < num_files; i++) 
+	for(unsigned int i = 0; i < num_files; i++)
 	{
-		// Get file size 
+		// Get file size
 		// Check read permission.
-		uint32_t file_size = files[i]->size; 
+		uint32_t file_size = files[i]->size;
 
 		// Read the file.
 		int fd = open(files[i]->filename, O_RDONLY);
 		if(fd < 0)
 		{
-			fprintf(stderr, "%s: Failed to open input file: %s, reason: %s\n", 
+			fprintf(stderr, "%s: Failed to open input file: %s, reason: %s\n",
 					argv[0],
 					files[i]->filename,
 					strerror(errno));
@@ -263,17 +280,17 @@ int main ( int argc , char **argv )
 		}
 
 		// Read bytewise. Spit out integer.
-		// This union allows us to quicky read in bytes, 
+		// This union allows us to quicky read in bytes,
 		// But work on it as a integer.
 		union {
 			uint32_t d;
-			uint8_t  a[WORD_SIZE]; 
+			uint8_t  a[WORD_SIZE];
 		}d;
 
 		// Read complete words.
 		while(file_size > 0)
 		{
-			unsigned int nread = 0;
+			size_t nread = 0;
 			// RESET
 			d.d =0;
 			while(nread != MIN(WORD_SIZE, file_size)){
