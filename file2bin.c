@@ -151,10 +151,14 @@ int main ( int argc , char **argv )
 			continue;
 		}
 		else if(strcmp(argv[current_file], "-l") == 0 || strcmp(argv[current_file], "--lend")==0)
-        {
-            little_endian = TRUE;
-            continue;
-        }
+		{
+			little_endian = TRUE;
+			continue;
+		}
+		else if(strcmp(argv[current_file], "-d") == 0 || strcmp(argv[current_file], "--direct")==0){
+			output_total_size = FALSE;
+			continue;
+		}
 		// No input argument, assume file.
 
 		// Get file size
